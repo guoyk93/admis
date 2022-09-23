@@ -144,16 +144,16 @@ type WebhookServerOptions struct {
 }
 
 var (
-	webhookServerDefaultOptions = WebhookServerOptions{
+	defaultWebhookServerOptions = WebhookServerOptions{
 		Port:     443,
 		CertFile: "/admission-server/tls.crt",
 		KeyFile:  "/admission-server/tls.key",
 	}
 )
 
-// WebhookServerDefaultOptions returns default options for WebhookServer
-func WebhookServerDefaultOptions() WebhookServerOptions {
-	return webhookServerDefaultOptions
+// DefaultWebhookServerOptions returns default options for WebhookServer
+func DefaultWebhookServerOptions() WebhookServerOptions {
+	return defaultWebhookServerOptions
 }
 
 type webhookServer struct {
@@ -189,7 +189,7 @@ func (w *webhookServer) Shutdown(ctx context.Context) error {
 
 // NewWebhookServer create a WebhookServer
 func NewWebhookServer(opts WebhookServerOptions, handler WebhookHandler) WebhookServer {
-	dfo := WebhookServerDefaultOptions()
+	dfo := DefaultWebhookServerOptions()
 	if opts.Port == 0 {
 		opts.Port = dfo.Port
 	}
