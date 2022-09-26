@@ -4,7 +4,7 @@
 
 Tools for building and registering Kubernetes admission webhooks
 
-## Library `ezadmis`
+## `ezadmis`
 
 ### Usage
 
@@ -29,7 +29,7 @@ type WebhookHandler func (ctx context.Context, request *admissionv1.AdmissionReq
 
 See [ezadmis-httpcat/main.go](cmd/ezadmis-httpcat/main.go)
 
-## Tool `ezadmis-install`
+## `ezadmis-install`
 
 The tool `ezadmis-install` can reduce the complexity of installing an admission webhook to kubernetes cluster.
 
