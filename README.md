@@ -1,6 +1,8 @@
 # ezadmis
 
-A Golang toolkit for Kubernetes Admission Registration and Webhooks
+[![Go Reference](https://pkg.go.dev/badge/github.com/guoyk93/ezadmis.svg)](https://pkg.go.dev/github.com/guoyk93/ezadmis)
+
+Tools for building and registering Kubernetes admission webhooks
 
 ## Library `ezadmis`
 
