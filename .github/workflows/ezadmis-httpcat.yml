@@ -18,6 +18,8 @@ jobs:
         uses: docker/metadata-action@v4
         with:
           images: guoyk/ezadmis-httpcat
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
 
       - name: dockerhub login
         uses: docker/login-action@v2
