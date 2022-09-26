@@ -18,11 +18,12 @@ import (
 )
 
 const (
-	SecretEZAdmisBoot = "ezadmisboot-ca"
+	SecretEZAdmisInstall = "ezadmis-install-ca"
 )
 
 type Options struct {
-	Name string `json:"name" validate:"required"`
+	Name      string `json:"name" validate:"required"`
+	Namespace string `json:"opts.Namespace"`
 
 	Mutating       bool                                         `json:"mutating"`
 	AdmissionRules []admissionregistrationv1.RuleWithOperations `json:"admissionRules" validate:"required"`
@@ -49,17 +50,24 @@ func main() {
 
 	opts := grace.Must(graceconf.LoadJSONFlagConf[Options]())
 
-	client := grace.Must(gracek8s.InClusterClient())
+	client := grace.Must(gracek8s.DefaultClient())
 
-	namespace := grace.Must(gracek8s.InClusterNamespace())
+	// try determine namespace
+	if opts.Namespace == "" {
+		if opts.Namespace, err = gracek8s.InClusterNamespace(); err != nil {
+			err = nil
+		}
+	}
+
+	log.Println("bootstrapping admission webhook", opts.Name, "in namespace", opts.Namespace)
 
 	ctx := context.Background()
 
 	ca := grace.Must(gracek8s.EnsureCertificate(ctx, client, gracek8s.EnsureCertificateOptions{
-		Namespace: namespace,
-		Name:      SecretEZAdmisBoot,
+		Namespace: opts.Namespace,
+		Name:      SecretEZAdmisInstall,
 		GenerationOptions: gracex509.GenerationOptions{
-			Names: []string{"EZAdmisBoot CA"},
+			Names: []string{"EZAdmisInstall root ca"},
 		},
 	}))
 
@@ -68,17 +76,17 @@ func main() {
 	secretName := opts.Name + "-crt"
 
 	leaf := grace.Must(gracek8s.EnsureCertificate(ctx, client, gracek8s.EnsureCertificateOptions{
-		Namespace: namespace,
+		Namespace: opts.Namespace,
 		Name:      secretName,
 		GenerationOptions: gracex509.GenerationOptions{
 			CACrtPEM: ca.CrtPEM,
 			CAKeyPEM: ca.KeyPEM,
 			Names: []string{
 				opts.Name,
-				opts.Name + "." + namespace,
-				opts.Name + "." + namespace + ".svc",
-				opts.Name + "." + namespace + ".svc.cluster",
-				opts.Name + "." + namespace + ".svc.cluster.local",
+				opts.Name + "." + opts.Namespace,
+				opts.Name + "." + opts.Namespace + ".svc",
+				opts.Name + "." + opts.Namespace + ".svc.cluster",
+				opts.Name + "." + opts.Namespace + ".svc.cluster.local",
 			},
 		},
 	}))
@@ -91,7 +99,7 @@ func main() {
 
 	grace.Must(gracek8s.Ensure[corev1.Service](
 		ctx,
-		client.CoreV1().Services(namespace),
+		client.CoreV1().Services(opts.Namespace),
 		&corev1.Service{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: opts.Name,
@@ -114,7 +122,7 @@ func main() {
 
 	grace.Must(gracek8s.Ensure[appsv1.StatefulSet](
 		ctx,
-		client.AppsV1().StatefulSets(namespace),
+		client.AppsV1().StatefulSets(opts.Namespace),
 		&appsv1.StatefulSet{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: opts.Name,
@@ -187,11 +195,11 @@ func main() {
 				},
 				Webhooks: []admissionregistrationv1.MutatingWebhook{
 					{
-						Name: opts.Name + ".ezadmisboot.guoyk93.github.io",
+						Name: opts.Name + ".ezadmis-install.guoyk93.github.io",
 						ClientConfig: admissionregistrationv1.WebhookClientConfig{
 							CABundle: ca.CrtPEM,
 							Service: &admissionregistrationv1.ServiceReference{
-								Namespace: namespace,
+								Namespace: opts.Namespace,
 								Name:      opts.Name,
 							},
 						},
@@ -213,11 +221,11 @@ func main() {
 				},
 				Webhooks: []admissionregistrationv1.ValidatingWebhook{
 					{
-						Name: opts.Name + ".ezadmisboot.guoyk93.github.io",
+						Name: opts.Name + ".ezadmis-install.guoyk93.github.io",
 						ClientConfig: admissionregistrationv1.WebhookClientConfig{
 							CABundle: ca.CrtPEM,
 							Service: &admissionregistrationv1.ServiceReference{
-								Namespace: namespace,
+								Namespace: opts.Namespace,
 								Name:      opts.Name,
 							},
 						},
