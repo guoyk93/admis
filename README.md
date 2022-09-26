@@ -219,7 +219,7 @@ spec:
             - /ezadmis-install
             - -conf
             - /config.json
-          volumesMount:
+          volumeMounts:
             - name: vol-cfg
               mountPath: /config.json
               subPath: config.json
