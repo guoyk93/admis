@@ -1,0 +1,10 @@
+FROM golang:1.19 AS builder
+ENV CGO_ENABLED 0
+WORKDIR /go/src/app
+ADD . .
+RUN go build ./cmd/ezadmis-install -o /ezadmis-install
+
+FROM alpine:3.16
+RUN apk add --no-cache ca-certificates tzdata
+COPY --from=builder /ezadmis-install /ezadmis-install
+CMD ["/ezadmis-install"]
