@@ -52,11 +52,14 @@ func main() {
 
 	client := grace.Must(gracek8s.DefaultClient())
 
-	// try determine namespace
+	// determine namespace
 	if opts.Namespace == "" {
 		if opts.Namespace, err = gracek8s.InClusterNamespace(); err != nil {
 			err = nil
 		}
+	}
+	if opts.Namespace == "" {
+		opts.Namespace = metav1.NamespaceDefault
 	}
 
 	log.Println("bootstrapping admission webhook", opts.Name, "in namespace", opts.Namespace)
@@ -116,7 +119,8 @@ func main() {
 					},
 				},
 			},
-		}))
+		},
+	))
 
 	log.Println("service ensured:", opts.Name)
 
@@ -185,17 +189,19 @@ func main() {
 
 	time.Sleep(time.Second * 10)
 
+	qualifiedName := opts.Namespace + "-" + opts.Name
+
 	if opts.Mutating {
 		grace.Must(gracek8s.Ensure[admissionregistrationv1.MutatingWebhookConfiguration](
 			ctx,
 			client.AdmissionregistrationV1().MutatingWebhookConfigurations(),
 			&admissionregistrationv1.MutatingWebhookConfiguration{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: opts.Name,
+					Name: qualifiedName,
 				},
 				Webhooks: []admissionregistrationv1.MutatingWebhook{
 					{
-						Name: opts.Name + ".ezadmis-install.guoyk93.github.io",
+						Name: qualifiedName + ".ezadmis-install.guoyk93.github.io",
 						ClientConfig: admissionregistrationv1.WebhookClientConfig{
 							CABundle: ca.CrtPEM,
 							Service: &admissionregistrationv1.ServiceReference{
@@ -217,11 +223,11 @@ func main() {
 			client.AdmissionregistrationV1().ValidatingWebhookConfigurations(),
 			&admissionregistrationv1.ValidatingWebhookConfiguration{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: opts.Name,
+					Name: qualifiedName,
 				},
 				Webhooks: []admissionregistrationv1.ValidatingWebhook{
 					{
-						Name: opts.Name + ".ezadmis-install.guoyk93.github.io",
+						Name: qualifiedName + ".ezadmis-install.guoyk93.github.io",
 						ClientConfig: admissionregistrationv1.WebhookClientConfig{
 							CABundle: ca.CrtPEM,
 							Service: &admissionregistrationv1.ServiceReference{
