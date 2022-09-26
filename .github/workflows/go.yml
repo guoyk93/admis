@@ -23,18 +23,3 @@ jobs:
 
       - name: test
         run: go test -v ./...
-
-      - name: dockerhub login
-        uses: docker/login-action@v2
-        if: github.event_name != 'pull_request'
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_PASSWORD }}
-
-      - name: dockerhub build and push
-        uses: docker/build-push-action@v3
-        with:
-          context: .
-          push: ${{ github.event_name != 'pull_request' }}
-          tags: guoyk/ezadmis-install:latest
-          file: ./Dockerfile.ezadmis-install
