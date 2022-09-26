@@ -25,7 +25,7 @@ type WebhookHandler func (ctx context.Context, request *admissionv1.AdmissionReq
 
 ### Example
 
-See [ezadmis-httpbin/main.go](cmd/ezadmis-httpbin/main.go)
+See [ezadmis-httpcat/main.go](cmd/ezadmis-httpcat/main.go)
 
 ## Tool `ezadmis-install`
 
@@ -45,7 +45,7 @@ go install github.com/guoyk93/ezadmis/cmd/ezadmis-install@latest
 {
   // name, name of your admission webhook
   // this will be the name of Service, StatefulSet, etc.
-  "name": "ezadmis-httpbin",
+  "name": "ezadmis-httpcat",
   // namespace, in which namespace your webhook will be installed
   "namespace": "autoops",
   // mutating, whether this is a mutating webhook
@@ -77,7 +77,7 @@ go install github.com/guoyk93/ezadmis/cmd/ezadmis-install@latest
   // should be one of 'Ignore' or 'Fail'
   "failurePolicy": "Ignore",
   // image, image of your admission webhook
-  "image": "guoyk/ezadmis-httpbin",
+  "image": "guoyk/ezadmis-httpcat",
   // serviceAccount, the service account your webhook will use
   "serviceAccount": "default",
   // port, on which port your webhook is listening
@@ -160,12 +160,12 @@ subjects:
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: ezadmis-httpbin-install-cfg
+  name: ezadmis-httpcat-install-cfg
   metadata: autoops
 data:
   config.json: |
     {
-      "name": "ezadmis-httpbin",
+      "name": "ezadmis-httpcat",
       "namespace": "autoops",
       "mutating": false,
       "admissionRules": [
@@ -187,7 +187,7 @@ data:
       ],
       "sideEffect": "None",
       "failurePolicy": "Ignore",
-      "image": "guoyk/ezadmis-httpbin",
+      "image": "guoyk/ezadmis-httpcat",
       "serviceAccount": "default",
       "port": 443,
       "env": [
@@ -206,14 +206,14 @@ data:
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: install-ezadmis-httpbin
+  name: install-ezadmis-httpcat
   namespace: autoops
 spec:
   template:
     spec:
       serviceAccount: ezadmis-install
       containers:
-        - name: install-ezadmis-httpbin
+        - name: install-ezadmis-httpcat
           image: guoyk/ezadmis-install
           args:
             - /ezadmis-install
@@ -226,7 +226,7 @@ spec:
       volumes:
         - name: vol-cfg
           configMap:
-            name: ezadmis-httpbin-install-cfg
+            name: ezadmis-httpcat-install-cfg
       restartPolicy: OnFailure
 ```
 
