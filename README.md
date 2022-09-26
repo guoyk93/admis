@@ -192,15 +192,15 @@ data:
       "port": 443,
       "env": [
         {
-          name: "aaa",
-          value: "bbb"
+          "name": "aaa",
+          "value": "bbb"
         }
       ],
       "mountPath": {
         "tlsCrt": "/admission-server/tls.crt",
-        "tlsKey": "/admission-server/tls.key",
+        "tlsKey": "/admission-server/tls.key"
       }
-    }
+}
 ---
 # Job
 apiVersion: batch/v1
