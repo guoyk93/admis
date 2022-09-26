@@ -161,7 +161,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: ezadmis-httpcat-install-cfg
-  metadata: autoops
+  namespace: autoops
 data:
   config.json: |
     {
