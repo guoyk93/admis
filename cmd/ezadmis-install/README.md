@@ -52,6 +52,12 @@ go install github.com/guoyk93/ezadmis/cmd/ezadmis-install@latest
   "failurePolicy": "Ignore",
   // image, image of your admission webhook
   "image": "guoyk/ezadmis-httpcat",
+  // imagePullSecrets
+  "imagePullSecrets": [],
+  // affinity
+  "affinity": {},
+  // nodeSelector
+  "nodeSelector": {},
   // serviceAccount, the service account your webhook will use
   "serviceAccount": "default",
   // port, on which port your webhook is listening
@@ -64,16 +70,27 @@ go install github.com/guoyk93/ezadmis/cmd/ezadmis-install@latest
       value: "bbb"
     }
   ],
-  // mountPath
-  "mountPath": {
-    // where the auto generated tls secret should be mounted
-    // default: 
-    //   /admission-server/tls.crt
-    //   /admission-server/tls.key
-    // (these are default values of 'WebhookServerOptions' of 'ezadmis' library)
-    "tlsCrt": "/admission-server/tls.crt",
-    "tlsKey": "/admission-server/tls.key",
-  }
+  // command
+  "command": [],
+  // args
+  "args": [],
+  // where the auto generated tls secret should be mounted
+  // default:
+  //   /admission-server/tls.crt
+  //   /admission-server/tls.key
+  // (these are default values of 'WebhookServerOptions' of 'ezadmis' library)
+  "tlsCrtPath": "/admission-server/tls.crt",
+  "tlsKeyPath": "/admission-server/tls.key",
+  // volumes, extra volumes
+  "volumes": [],
+  // volumeMounts, extra volume mounts
+  "volumeMounts": [],
+  // containers, extra containers
+  "containers": [],
+  // resources, resources
+  "resources": {},
+  // initContainers, init containers
+  "initContainers": []
 }
 ```
 
@@ -135,84 +152,9 @@ subjects:
     namespace: autoops
 ```
 
-### Create the Installation `Job`
+### Installation
 
-**Assuming we are installing `ezadmis-httpcat` to namespace `autoops`**
-
-```yaml
-# Configuration
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: ezadmis-httpcat-install-cfg
-  namespace: autoops
-data:
-  config.json: |
-    {
-      "name": "ezadmis-httpcat",
-      "namespace": "autoops",
-      "mutating": false,
-      "admissionRules": [
-        {
-          "apiGroups": [
-            ""
-          ],
-          "apiVersions": [
-            "*"
-          ],
-          "resources": [
-            "pods"
-          ],
-          "operations": [
-            "CREATE"
-          ],
-          "scope": "Namespaced"
-        }
-      ],
-      "sideEffect": "None",
-      "failurePolicy": "Ignore",
-      "image": "guoyk/ezadmis-httpcat",
-      "serviceAccount": "default",
-      "port": 443,
-      "env": [
-        {
-          "name": "aaa",
-          "value": "bbb"
-        }
-      ],
-      "mountPath": {
-        "tlsCrt": "/admission-server/tls.crt",
-        "tlsKey": "/admission-server/tls.key"
-      }
-}
----
-# Job
-apiVersion: batch/v1
-kind: Job
-metadata:
-  name: install-ezadmis-httpcat
-  namespace: autoops
-spec:
-  template:
-    spec:
-      serviceAccount: ezadmis-install
-      containers:
-        - name: install-ezadmis-httpcat
-          image: guoyk/ezadmis-install
-          args:
-            - /ezadmis-install
-            - -conf
-            - /config.json
-          volumeMounts:
-            - name: vol-cfg
-              mountPath: /config.json
-              subPath: config.json
-      volumes:
-        - name: vol-cfg
-          configMap:
-            name: ezadmis-httpcat-install-cfg
-      restartPolicy: OnFailure
-```
+See [ezadmis-httpcat's README.md](../ezadmis-httpcat) for example
 
 ## Donation
 

@@ -30,14 +30,22 @@ type Options struct {
 	SideEffect     admissionregistrationv1.SideEffectClass      `json:"sideEffect" default:"Unknown" validate:"required"`
 	FailurePolicy  admissionregistrationv1.FailurePolicyType    `json:"failurePolicy" default:"Fail" validate:"required"`
 
-	Image          string          `json:"image" validate:"required"`
-	ServiceAccount string          `json:"serviceAccount"`
-	Port           int             `json:"port" default:"443" validate:"required"`
-	Env            []corev1.EnvVar `json:"env"`
-	MountPath      struct {
-		TLSCrt string `json:"tlsCrt" default:"/admission-server/tls.crt" validate:"required"`
-		TLSKey string `json:"tlsKey" default:"/admission-server/tls.key" validate:"required"`
-	} `json:"mountPath"`
+	Image            string                        `json:"image" validate:"required"`
+	ImagePullSecrets []corev1.LocalObjectReference `json:"imagePullSecrets"`
+	Affinity         *corev1.Affinity              `json:"affinity"`
+	NodeSelector     map[string]string             `json:"nodeSelector"`
+	ServiceAccount   string                        `json:"serviceAccount"`
+	Port             int                           `json:"port" default:"443" validate:"required"`
+	Env              []corev1.EnvVar               `json:"env"`
+	Command          []string                      `json:"command"`
+	Args             []string                      `json:"args"`
+	TLSCrtPath       string                        `json:"tlsCrtPath" default:"/admission-server/tls.crt" validate:"required"`
+	TLSKeyPath       string                        `json:"tlsKeyPath" default:"/admission-server/tls.key" validate:"required"`
+	Volumes          []corev1.Volume               `json:"volumes"`
+	VolumeMounts     []corev1.VolumeMount          `json:"volumeMounts"`
+	Containers       []corev1.Container            `json:"containers"`
+	Resources        corev1.ResourceRequirements   `json:"resources"`
+	InitContainers   []corev1.Container            `json:"initContainers"`
 }
 
 func main() {
@@ -124,6 +132,8 @@ func main() {
 
 	log.Println("service ensured:", opts.Name)
 
+	const volumeNameTLS = "vol-ezadmis-tls"
+
 	grace.Must(gracek8s.Ensure[appsv1.StatefulSet](
 		ctx,
 		client.AppsV1().StatefulSets(opts.Namespace),
@@ -141,11 +151,17 @@ func main() {
 						Labels: serviceSelector,
 					},
 					Spec: corev1.PodSpec{
-						Containers: []corev1.Container{
+						ImagePullSecrets: opts.ImagePullSecrets,
+						InitContainers:   opts.InitContainers,
+						Affinity:         opts.Affinity,
+						NodeSelector:     opts.NodeSelector,
+						Containers: append([]corev1.Container{
 							{
 								Name:            opts.Name,
 								Image:           opts.Image,
 								ImagePullPolicy: corev1.PullAlways,
+								Command:         opts.Command,
+								Args:            opts.Args,
 								Env:             opts.Env,
 								Ports: []corev1.ContainerPort{
 									{
@@ -154,31 +170,32 @@ func main() {
 										ContainerPort: int32(opts.Port),
 									},
 								},
-								VolumeMounts: []corev1.VolumeMount{
+								VolumeMounts: append([]corev1.VolumeMount{
 									{
-										Name:      "vol-tls",
+										Name:      volumeNameTLS,
 										SubPath:   corev1.TLSCertKey,
-										MountPath: opts.MountPath.TLSCrt,
+										MountPath: opts.TLSCrtPath,
 									},
 									{
-										Name:      "vol-tls",
+										Name:      volumeNameTLS,
 										SubPath:   corev1.TLSPrivateKeyKey,
-										MountPath: opts.MountPath.TLSKey,
+										MountPath: opts.TLSKeyPath,
 									},
-								},
+								}, opts.VolumeMounts...),
+								Resources: opts.Resources,
 							},
-						},
+						}, opts.Containers...),
 						ServiceAccountName: opts.ServiceAccount,
-						Volumes: []corev1.Volume{
+						Volumes: append([]corev1.Volume{
 							{
-								Name: "vol-tls",
+								Name: volumeNameTLS,
 								VolumeSource: corev1.VolumeSource{
 									Secret: &corev1.SecretVolumeSource{
 										SecretName: secretName,
 									},
 								},
 							},
-						},
+						}, opts.Volumes...),
 					},
 				},
 			},
