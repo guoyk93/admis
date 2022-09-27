@@ -30,11 +30,11 @@ data:
           "apiGroups": [""],
           "apiVersions": ["*"],
           "resources": ["namespaces"],
-          "operations": ["DELETE"],
+          "operations": ["DELETE"]
         }
       ],
       "sideEffect": "None",
-      "image": "guoyk/ezadmis-deny-ns-deletion",
+      "image": "guoyk/ezadmis-deny-ns-deletion"
     }
 ---
 # Job
