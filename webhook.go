@@ -113,7 +113,7 @@ func WrapWebhookHandler(opts WrapWebhookHandlerOptions, handler WebhookHandler) 
 			if err == nil {
 				return
 			}
-			log.Println("failed to handle mutating admission review:", err.Error())
+			log.Println("failed to handle admission review:", err.Error())
 			http.Error(rw, err.Error(), http.StatusInternalServerError)
 		}()
 
