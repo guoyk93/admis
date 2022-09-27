@@ -1,0 +1,10 @@
+FROM golang:1.19 AS builder
+ENV CGO_ENABLED 0
+WORKDIR /go/src/app
+ADD . .
+RUN go build -o /ezadmis-deny-ns-deletion ./cmd/ezadmis-deny-ns-deletion
+
+FROM alpine:3.16
+RUN apk add --no-cache ca-certificates tzdata
+COPY --from=builder /ezadmis-deny-ns-deletion /ezadmis-deny-ns-deletion
+CMD ["/ezadmis-deny-ns-deletion"]

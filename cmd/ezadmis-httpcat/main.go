@@ -11,15 +11,16 @@ import (
 
 func main() {
 	s := ezadmis.NewWebhookServer(
-		ezadmis.WebhookServerOptions{},
-		func(
-			ctx context.Context,
-			request *admissionv1.AdmissionRequest,
-			patches *[]map[string]interface{},
-		) (deny string, err error) {
-			buf, _ := json.MarshalIndent(request, "", "  ")
-			log.Println(string(buf))
-			return
+		ezadmis.WebhookServerOptions{
+			Handler: func(
+				ctx context.Context,
+				req *admissionv1.AdmissionRequest,
+				rw ezadmis.WebhookResponseWriter,
+			) (err error) {
+				buf, _ := json.MarshalIndent(req, "", "  ")
+				log.Println(string(buf))
+				return
+			},
 		},
 	)
 

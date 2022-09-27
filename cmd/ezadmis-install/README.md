@@ -20,6 +20,7 @@ go install github.com/guoyk93/ezadmis/cmd/ezadmis-install@latest
   // namespace, in which namespace your webhook will be installed
   "namespace": "autoops",
   // mutating, whether this is a mutating webhook
+  // default: false
   "mutating": false,
   // admissionRules, what kubernetes operations should be reviewed by this webhook
   // check https://kubernetes.io/docs/reference/access-authn-authz/extensible-admission-controllers/#configure-admission-webhooks-on-the-fly for syntax
@@ -43,15 +44,18 @@ go install github.com/guoyk93/ezadmis/cmd/ezadmis-install@latest
   ],
   // sideEffect, side effect of this webhook
   // should be one of 'Unknown', 'None', 'Some' or 'NoneOnDryRun'
+  // default: Unknown
   "sideEffect": "None",
   // failurePolicy, whether failure of calling this webhook should block the original request.
   // should be one of 'Ignore' or 'Fail'
+  // default: Fail
   "failurePolicy": "Ignore",
   // image, image of your admission webhook
   "image": "guoyk/ezadmis-httpcat",
   // serviceAccount, the service account your webhook will use
   "serviceAccount": "default",
   // port, on which port your webhook is listening
+  // default: 443
   "port": 443,
   // env, any extra environment variables your webhook need
   "env": [
@@ -63,8 +67,10 @@ go install github.com/guoyk93/ezadmis/cmd/ezadmis-install@latest
   // mountPath
   "mountPath": {
     // where the auto generated tls secret should be mounted
-    // default to /admission-server/tls.crt and /admission-server/tls.key
-    // these are default values of 'WebhookServerOptions' of 'ezadmis' library
+    // default: 
+    //   /admission-server/tls.crt
+    //   /admission-server/tls.key
+    // (these are default values of 'WebhookServerOptions' of 'ezadmis' library)
     "tlsCrt": "/admission-server/tls.crt",
     "tlsKey": "/admission-server/tls.key",
   }
@@ -85,14 +91,15 @@ Just one-run command and `ezadmis-install` will do the following steps:
 4. create `StatefulSet` for your webhook
 5. create corresponding `MutatingWebhookRegistration` or `ValidatingWebhookRegistration` for your webhook
 
-## In-Cluster Usage
+## Usage In-Cluster
 
 `ezadmis-install` can execute in-cluster, as long as `RBAC` is set up correctly.
 
-Here is an example for running `ezadmis-install` as `Job` in namespace `autoops`:
+### RBAC Initialization
+
+**Assuming we are installing to namespace `autoops`**
 
 ```yaml
-# ServiceAccount and RBAC
 apiVersion: v1
 kind: ServiceAccount
 metadata:
@@ -126,7 +133,13 @@ subjects:
   - kind: ServiceAccount
     name: ezadmis-install
     namespace: autoops
----
+```
+
+### Create the Installation `Job`
+
+**Assuming we are installing `ezadmis-httpcat` to namespace `autoops`**
+
+```yaml
 # Configuration
 apiVersion: v1
 kind: ConfigMap

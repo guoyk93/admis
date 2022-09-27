@@ -36,8 +36,12 @@ This repository provides many powerful tools
   Reduce the complexity of installing an admission webhook
 
 * [ezadmis-httpcat](cmd/ezadmis-httpcat)
-  
+
   Print the incoming `AdmissionReview` request for debugging
+
+* [ezadmis-deny-ns-deletion](cmd/ezadmis-deny-ns-deletion)
+
+  Deny deletion of namespace, unless a special annotation is set
 
 ## Donation
 

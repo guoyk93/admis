@@ -16,10 +16,88 @@ import (
 	admissionv1 "k8s.io/api/admission/v1"
 )
 
+// WebhookResponseWriter response writer for WebhookHandler
+type WebhookResponseWriter interface {
+	// Deny deny this admission request
+	Deny(deny string)
+	// PatchRaw append a raw JSONPatch operation
+	PatchRaw(patch map[string]interface{})
+	// PatchAdd append a JSONPatch 'add' operation
+	PatchAdd(path string, value interface{})
+	// PatchRemove append a JSONPatch 'remove' operation
+	PatchRemove(path string)
+	// PatchReplace append a JSONPatch 'replace' operation
+	PatchReplace(path string, value interface{})
+	// PatchCopy append a JSONPatch 'copy' operation
+	PatchCopy(path string, from string)
+	// PatchMove append a JSONPatch 'move' operation
+	PatchMove(path string, from string)
+	// PatchTest append a JSONPatch 'test' operation
+	PatchTest(path string, value interface{})
+}
+
+type webhookResponseWriter struct {
+	patches []map[string]interface{}
+	deny    string
+}
+
+func (w *webhookResponseWriter) Deny(deny string) {
+	w.deny = deny
+}
+
+func (w *webhookResponseWriter) PatchRaw(patch map[string]interface{}) {
+	w.patches = append(w.patches, patch)
+}
+
+func (w *webhookResponseWriter) PatchAdd(path string, value interface{}) {
+	w.PatchRaw(map[string]interface{}{
+		"op":    "add",
+		"path":  path,
+		"value": value,
+	})
+}
+
+func (w *webhookResponseWriter) PatchRemove(path string) {
+	w.PatchRaw(map[string]interface{}{
+		"op":   "remove",
+		"path": path,
+	})
+}
+
+func (w *webhookResponseWriter) PatchReplace(path string, value interface{}) {
+	w.PatchRaw(map[string]interface{}{
+		"op":    "replace",
+		"path":  path,
+		"value": value,
+	})
+}
+
+func (w *webhookResponseWriter) PatchCopy(path string, from string) {
+	w.PatchRaw(map[string]interface{}{
+		"op":   "copy",
+		"path": path,
+		"from": from,
+	})
+}
+
+func (w *webhookResponseWriter) PatchMove(path string, from string) {
+	w.PatchRaw(map[string]interface{}{
+		"op":   "move",
+		"path": path,
+		"from": from,
+	})
+}
+
+func (w *webhookResponseWriter) PatchTest(path string, value interface{}) {
+	w.PatchRaw(map[string]interface{}{
+		"op":    "test",
+		"path":  path,
+		"value": value,
+	})
+}
+
 // WebhookHandler function to modify incoming kubernetes resource;
-// use 'patches' to output JSON patch modifications;
-// return non-empty `deny` value to deny this modification
-type WebhookHandler func(ctx context.Context, request *admissionv1.AdmissionRequest, patches *[]map[string]interface{}) (deny string, err error)
+type WebhookHandler func(ctx context.Context, req *admissionv1.AdmissionRequest, rw WebhookResponseWriter) (err error)
 
 // WrapWebhookHandlerOptions options for wrapping WebhookHandler
 type WrapWebhookHandlerOptions struct {
@@ -53,25 +131,22 @@ func WrapWebhookHandler(opts WrapWebhookHandlerOptions, handler WebhookHandler) 
 		}
 
 		// execute handler
-		var (
-			retDeny    string
-			retPatches []map[string]interface{}
-		)
+		ret := &webhookResponseWriter{}
 
-		if retDeny, err = handler(req.Context(), reqReview.Request, &retPatches); err != nil {
+		if err = handler(req.Context(), reqReview.Request, ret); err != nil {
 			err = errors.New("failed to execute WebhookHandler: " + err.Error())
 			return
 		}
 
 		if opts.Debug {
 			log.Println("Patches:")
-			if len(retPatches) == 0 {
+			if len(ret.patches) == 0 {
 				log.Println("--- NONE ---")
 			} else {
-				raw, _ := json.MarshalIndent(retPatches, "", "  ")
+				raw, _ := json.MarshalIndent(ret.patches, "", "  ")
 				log.Println(string(raw))
 			}
-			log.Println("Deny:", retDeny)
+			log.Println("Deny:", ret.deny)
 		}
 
 		// build response
@@ -80,8 +155,8 @@ func WrapWebhookHandler(opts WrapWebhookHandlerOptions, handler WebhookHandler) 
 		{
 			var patch []byte
 			var patchType *admissionv1.PatchType
-			if len(retPatches) != 0 {
-				if patch, err = json.Marshal(retPatches); err != nil {
+			if len(ret.patches) != 0 {
+				if patch, err = json.Marshal(ret.patches); err != nil {
 					err = errors.New("failed to marshal WebhookHandler patches: " + err.Error())
 					return
 				}
@@ -90,10 +165,10 @@ func WrapWebhookHandler(opts WrapWebhookHandlerOptions, handler WebhookHandler) 
 			}
 
 			var status *metav1.Status
-			if retDeny != "" {
+			if ret.deny != "" {
 				status = &metav1.Status{
 					Status:  metav1.StatusFailure,
-					Message: retDeny,
+					Message: ret.deny,
 					Reason:  metav1.StatusReasonBadRequest,
 				}
 			}
@@ -102,7 +177,7 @@ func WrapWebhookHandler(opts WrapWebhookHandlerOptions, handler WebhookHandler) 
 				TypeMeta: reqReview.TypeMeta,
 				Response: &admissionv1.AdmissionResponse{
 					UID:       reqReview.Request.UID,
-					Allowed:   retDeny == "",
+					Allowed:   ret.deny == "",
 					Result:    status,
 					Patch:     patch,
 					PatchType: patchType,
@@ -141,6 +216,7 @@ type WebhookServerOptions struct {
 	CertFile string
 	KeyFile  string
 	Debug    bool
+	Handler  WebhookHandler
 }
 
 var (
@@ -188,7 +264,7 @@ func (w *webhookServer) Shutdown(ctx context.Context) error {
 }
 
 // NewWebhookServer create a WebhookServer
-func NewWebhookServer(opts WebhookServerOptions, handler WebhookHandler) WebhookServer {
+func NewWebhookServer(opts WebhookServerOptions) WebhookServer {
 	dfo := DefaultWebhookServerOptions()
 	if opts.Port == 0 {
 		opts.Port = dfo.Port
@@ -199,6 +275,11 @@ func NewWebhookServer(opts WebhookServerOptions, handler WebhookHandler) Webhook
 	if opts.KeyFile == "" {
 		opts.KeyFile = dfo.KeyFile
 	}
+	if opts.Handler == nil {
+		opts.Handler = func(_ context.Context, _ *admissionv1.AdmissionRequest, _ WebhookResponseWriter) error {
+			return nil
+		}
+	}
 	return &webhookServer{
 		opts: opts,
 		s: &http.Server{
@@ -207,7 +288,7 @@ func NewWebhookServer(opts WebhookServerOptions, handler WebhookHandler) Webhook
 				WrapWebhookHandlerOptions{
 					Debug: opts.Debug,
 				},
-				handler,
+				opts.Handler,
 			),
 		},
 	}
