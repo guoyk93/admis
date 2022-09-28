@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"k8s.io/apimachinery/pkg/types"
 	"log"
 	"net/http"
 	"os"
@@ -34,6 +35,9 @@ type WebhookResponseWriter interface {
 	PatchMove(path string, from string)
 	// PatchTest append a JSONPatch 'test' operation
 	PatchTest(path string, value interface{})
+
+	// Build build a admission response
+	Build(uid types.UID) (res *admissionv1.AdmissionResponse, err error)
 }
 
 type webhookResponseWriter struct {
@@ -96,6 +100,32 @@ func (w *webhookResponseWriter) PatchTest(path string, value interface{}) {
 	})
 }
 
+func (w *webhookResponseWriter) Build(uid types.UID) (res *admissionv1.AdmissionResponse, err error) {
+	res = &admissionv1.AdmissionResponse{
+		UID:     uid,
+		Allowed: w.deny == "",
+	}
+
+	if w.deny == "" {
+		if len(w.patches) != 0 {
+			res.PatchType = new(admissionv1.PatchType)
+			*res.PatchType = admissionv1.PatchTypeJSONPatch
+			if res.Patch, err = json.Marshal(w.patches); err != nil {
+				err = errors.New("WebhookResponseWriter#Build(): " + err.Error())
+				return
+			}
+		}
+	} else {
+		res.Result = &metav1.Status{
+			Status:  metav1.StatusFailure,
+			Message: w.deny,
+			Reason:  metav1.StatusReasonBadRequest,
+		}
+	}
+
+	return
+}
+
 // WebhookHandler function to modify incoming kubernetes resource;
 type WebhookHandler func(ctx context.Context, req *admissionv1.AdmissionRequest, rw WebhookResponseWriter) (err error)
 
@@ -150,39 +180,12 @@ func WrapWebhookHandler(opts WrapWebhookHandlerOptions, handler WebhookHandler) 
 		}
 
 		// build response
-		var resReview admissionv1.AdmissionReview
+		resReview := admissionv1.AdmissionReview{
+			TypeMeta: reqReview.TypeMeta,
+		}
 
-		{
-			var patch []byte
-			var patchType *admissionv1.PatchType
-			if len(ret.patches) != 0 {
-				if patch, err = json.Marshal(ret.patches); err != nil {
-					err = errors.New("failed to marshal WebhookHandler patches: " + err.Error())
-					return
-				}
-				patchType = new(admissionv1.PatchType)
-				*patchType = admissionv1.PatchTypeJSONPatch
-			}
-
-			var status *metav1.Status
-			if ret.deny != "" {
-				status = &metav1.Status{
-					Status:  metav1.StatusFailure,
-					Message: ret.deny,
-					Reason:  metav1.StatusReasonBadRequest,
-				}
-			}
-
-			resReview = admissionv1.AdmissionReview{
-				TypeMeta: reqReview.TypeMeta,
-				Response: &admissionv1.AdmissionResponse{
-					UID:       reqReview.Request.UID,
-					Allowed:   ret.deny == "",
-					Result:    status,
-					Patch:     patch,
-					PatchType: patchType,
-				},
-			}
+		if resReview.Response, err = ret.Build(reqReview.Request.UID); err != nil {
+			return
 		}
 
 		// send response
