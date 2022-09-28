@@ -74,7 +74,7 @@ func main() {
 
 	ctx := context.Background()
 
-	ca := grace.Must(
+	_, ca := grace.Must2(
 		gracek8s.GetOrCreateTLSSecret(
 			ctx,
 			client.CoreV1().Secrets(opts.Namespace),
@@ -90,7 +90,7 @@ func main() {
 
 	secretName := opts.Name + "-crt"
 
-	leaf := grace.Must(
+	_, leaf := grace.Must2(
 		gracek8s.GetOrCreateTLSSecret(
 			ctx,
 			client.CoreV1().Secrets(opts.Namespace),
