@@ -156,27 +156,8 @@ func WrapWebhookHandler(opts WrapWebhookHandlerOptions, handler WebhookHandler) 
 
 		if opts.Debug {
 			log.Println("Request:")
-			raw, _ := json.Marshal(&reqReview)
+			raw, _ := json.MarshalIndent(reqReview, "", "  ")
 			log.Println(string(raw))
-		}
-
-		// execute handler
-		ret := &webhookResponseWriter{}
-
-		if err = handler(req.Context(), reqReview.Request, ret); err != nil {
-			err = errors.New("failed to execute WebhookHandler: " + err.Error())
-			return
-		}
-
-		if opts.Debug {
-			log.Println("Patches:")
-			if len(ret.patches) == 0 {
-				log.Println("--- NONE ---")
-			} else {
-				raw, _ := json.MarshalIndent(ret.patches, "", "  ")
-				log.Println(string(raw))
-			}
-			log.Println("Deny:", ret.deny)
 		}
 
 		// build response
@@ -184,16 +165,37 @@ func WrapWebhookHandler(opts WrapWebhookHandlerOptions, handler WebhookHandler) 
 			TypeMeta: reqReview.TypeMeta,
 		}
 
-		if resReview.Response, err = ret.Build(reqReview.Request.UID); err != nil {
-			return
+		// execute handler
+		{
+			wrw := &webhookResponseWriter{}
+
+			if err = handler(req.Context(), reqReview.Request, wrw); err != nil {
+				err = errors.New("failed to execute WebhookHandler: " + err.Error())
+				return
+			}
+
+			if resReview.Response, err = wrw.Build(reqReview.Request.UID); err != nil {
+				return
+			}
 		}
 
 		// send response
 		var buf []byte
-		if buf, err = json.Marshal(resReview); err != nil {
+		if opts.Debug {
+			buf, err = json.MarshalIndent(resReview, "", "  ")
+		} else {
+			buf, err = json.Marshal(resReview)
+		}
+		if err != nil {
 			err = errors.New("failed to marshal outgoing AdmissionReview: " + err.Error())
 			return
 		}
+
+		if opts.Debug {
+			log.Println("Response:")
+			log.Println(string(buf))
+		}
+
 		rw.Header().Set("Content-Type", "application/json")
 		rw.Header().Set("Content-Length", strconv.Itoa(len(buf)))
 		_, _ = rw.Write(buf)
