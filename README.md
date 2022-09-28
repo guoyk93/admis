@@ -29,7 +29,7 @@ See [ezadmis-httpcat/main.go](cmd/ezadmis-httpcat/main.go)
 
 ## Tools
 
-This repository provides many powerful tools
+This repository provides two important tools
 
 * [ezadmis-install](cmd/ezadmis-install)
 
@@ -38,6 +38,10 @@ This repository provides many powerful tools
 * [ezadmis-httpcat](cmd/ezadmis-httpcat)
 
   Print the incoming `AdmissionReview` request for debugging
+
+## Extra Tools
+
+See https://github.com/guoyk93/ezadmis-extra
 
 ## Donation
 
