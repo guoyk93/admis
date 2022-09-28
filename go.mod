@@ -3,7 +3,7 @@ module github.com/guoyk93/ezadmis
 go 1.18
 
 require (
-	github.com/guoyk93/grace v0.0.0-20220926080412-ecd9e9be51ec
+	github.com/guoyk93/grace v0.0.0-20220928094922-caf5c1184bcc
 	k8s.io/api v0.22.9
 	k8s.io/apimachinery v0.22.9
 )

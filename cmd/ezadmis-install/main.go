@@ -74,41 +74,47 @@ func main() {
 
 	ctx := context.Background()
 
-	ca := grace.Must(gracek8s.EnsureCertificate(ctx, client, gracek8s.EnsureCertificateOptions{
-		Namespace: opts.Namespace,
-		Name:      SecretEZAdmisInstall,
-		GenerationOptions: gracex509.GenerationOptions{
-			Names: []string{"EZAdmisInstall root ca"},
-		},
-	}))
+	ca := grace.Must(
+		gracek8s.GetOrCreateTLSSecret(
+			ctx,
+			client.CoreV1().Secrets(opts.Namespace),
+			SecretEZAdmisInstall,
+			gracex509.GenerateOptions{
+				IsCA:  true,
+				Names: []string{"EZAdmisInstall root ca"},
+			},
+		),
+	)
 
-	log.Println("ca certificate ensured:", string(ca.CrtPEM))
+	log.Println("ca certificate ensured:", string(ca.Crt))
 
 	secretName := opts.Name + "-crt"
 
-	leaf := grace.Must(gracek8s.EnsureCertificate(ctx, client, gracek8s.EnsureCertificateOptions{
-		Namespace: opts.Namespace,
-		Name:      secretName,
-		GenerationOptions: gracex509.GenerationOptions{
-			CACrtPEM: ca.CrtPEM,
-			CAKeyPEM: ca.KeyPEM,
-			Names: []string{
-				opts.Name,
-				opts.Name + "." + opts.Namespace,
-				opts.Name + "." + opts.Namespace + ".svc",
-				opts.Name + "." + opts.Namespace + ".svc.cluster",
-				opts.Name + "." + opts.Namespace + ".svc.cluster.local",
+	leaf := grace.Must(
+		gracek8s.GetOrCreateTLSSecret(
+			ctx,
+			client.CoreV1().Secrets(opts.Namespace),
+			secretName,
+			gracex509.GenerateOptions{
+				Parent: ca,
+				Names: []string{
+					opts.Name,
+					opts.Name + "." + opts.Namespace,
+					opts.Name + "." + opts.Namespace + ".svc",
+					opts.Name + "." + opts.Namespace + ".svc.cluster",
+					opts.Name + "." + opts.Namespace + ".svc.cluster.local",
+				},
 			},
-		},
-	}))
+		),
+	)
 
-	log.Println("leaf certificate ensured:", string(leaf.CrtPEM))
+	log.Println("leaf certificate ensured:", string(leaf.Crt))
 
-	serviceSelector := map[string]string{
+	workloadSelector := map[string]string{
 		"k8s-app": opts.Name,
 	}
 
-	grace.Must(gracek8s.Ensure[corev1.Service](
+	grace.Must(gracek8s.GetOrCreate[corev1.Service](
 		ctx,
 		client.CoreV1().Services(opts.Namespace),
 		&corev1.Service{
@@ -116,7 +122,7 @@ func main() {
 				Name: opts.Name,
 			},
 			Spec: corev1.ServiceSpec{
-				Selector: serviceSelector,
+				Selector: workloadSelector,
 				Type:     corev1.ServiceTypeClusterIP,
 				Ports: []corev1.ServicePort{
 					{
@@ -134,7 +140,7 @@ func main() {
 
 	const volumeNameTLS = "vol-ezadmis-tls"
 
-	grace.Must(gracek8s.Ensure[appsv1.StatefulSet](
+	grace.Must(gracek8s.GetOrCreate[appsv1.StatefulSet](
 		ctx,
 		client.AppsV1().StatefulSets(opts.Namespace),
 		&appsv1.StatefulSet{
@@ -143,12 +149,12 @@ func main() {
 			},
 			Spec: appsv1.StatefulSetSpec{
 				Selector: &metav1.LabelSelector{
-					MatchLabels: serviceSelector,
+					MatchLabels: workloadSelector,
 				},
 				ServiceName: opts.Name,
 				Template: corev1.PodTemplateSpec{
 					ObjectMeta: metav1.ObjectMeta{
-						Labels: serviceSelector,
+						Labels: workloadSelector,
 					},
 					Spec: corev1.PodSpec{
 						ImagePullSecrets: opts.ImagePullSecrets,
@@ -209,7 +215,7 @@ func main() {
 	qualifiedName := opts.Namespace + "-" + opts.Name
 
 	if opts.Mutating {
-		grace.Must(gracek8s.Ensure[admissionregistrationv1.MutatingWebhookConfiguration](
+		grace.Must(gracek8s.GetOrCreate[admissionregistrationv1.MutatingWebhookConfiguration](
 			ctx,
 			client.AdmissionregistrationV1().MutatingWebhookConfigurations(),
 			&admissionregistrationv1.MutatingWebhookConfiguration{
@@ -220,7 +226,7 @@ func main() {
 					{
 						Name: qualifiedName + ".ezadmis-install.guoyk93.github.io",
 						ClientConfig: admissionregistrationv1.WebhookClientConfig{
-							CABundle: ca.CrtPEM,
+							CABundle: ca.Crt,
 							Service: &admissionregistrationv1.ServiceReference{
 								Namespace: opts.Namespace,
 								Name:      opts.Name,
@@ -235,7 +241,7 @@ func main() {
 			},
 		))
 	} else {
-		grace.Must(gracek8s.Ensure[admissionregistrationv1.ValidatingWebhookConfiguration](
+		grace.Must(gracek8s.GetOrCreate[admissionregistrationv1.ValidatingWebhookConfiguration](
 			ctx,
 			client.AdmissionregistrationV1().ValidatingWebhookConfigurations(),
 			&admissionregistrationv1.ValidatingWebhookConfiguration{
@@ -246,7 +252,7 @@ func main() {
 					{
 						Name: qualifiedName + ".ezadmis-install.guoyk93.github.io",
 						ClientConfig: admissionregistrationv1.WebhookClientConfig{
-							CABundle: ca.CrtPEM,
+							CABundle: ca.Crt,
 							Service: &admissionregistrationv1.ServiceReference{
 								Namespace: opts.Namespace,
 								Name:      opts.Name,
