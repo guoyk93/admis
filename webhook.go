@@ -10,6 +10,8 @@ import (
 	"os"
 	"os/signal"
 	"strconv"
+	"strings"
+	"sync"
 	"syscall"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -136,21 +138,38 @@ type WrapWebhookHandlerOptions struct {
 
 // WrapWebhookHandler wrap WebhookHandler to http.HandlerFunc
 func WrapWebhookHandler(opts WrapWebhookHandlerOptions, handler WebhookHandler) http.HandlerFunc {
+	var debugLock sync.Locker
+
+	if opts.Debug {
+		debugLock = &sync.Mutex{}
+	}
+
 	return func(rw http.ResponseWriter, req *http.Request) {
+		if opts.Debug {
+			// debug lock
+			debugLock.Lock()
+			defer debugLock.Unlock()
+
+			// debug log separator
+			sep := strings.Repeat("=", 80)
+			log.Println(sep)
+			defer log.Println(sep)
+		}
+
 		// automatically error returning
 		var err error
 		defer func() {
 			if err == nil {
 				return
 			}
-			log.Println("failed to handle admission review:", err.Error())
+			log.Println("ezadmis: webhook http handler failed:", err.Error())
 			http.Error(rw, err.Error(), http.StatusInternalServerError)
 		}()
 
 		// decode request
 		var reqReview admissionv1.AdmissionReview
 		if err = json.NewDecoder(req.Body).Decode(&reqReview); err != nil {
-			err = errors.New("failed to decode incoming AdmissionReview: " + err.Error())
+			err = errors.New("failed to unmarshal AdmissionReview request: " + err.Error())
 			return
 		}
 
@@ -175,6 +194,7 @@ func WrapWebhookHandler(opts WrapWebhookHandlerOptions, handler WebhookHandler) 
 			}
 
 			if resReview.Response, err = wrw.Build(reqReview.Request.UID); err != nil {
+				err = errors.New("failed to build AdmissionReview response: " + err.Error())
 				return
 			}
 		}
@@ -187,7 +207,7 @@ func WrapWebhookHandler(opts WrapWebhookHandlerOptions, handler WebhookHandler) 
 			buf, err = json.Marshal(resReview)
 		}
 		if err != nil {
-			err = errors.New("failed to marshal outgoing AdmissionReview: " + err.Error())
+			err = errors.New("failed to marshal AdmissionReview response: " + err.Error())
 			return
 		}
 
