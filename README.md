@@ -12,7 +12,7 @@ The library `ezadmis` can reduce the complexity of writing a kubernetes admissio
 All things you have to do is to implement a handler function.
 
 ```go
-type WebhookHandler func (ctx context.Context, request *admissionv1.AdmissionRequest, patches *[]map[string]interface{}) (deny string, err error)
+type WebhookHandler func(ctx context.Context, req *admissionv1.AdmissionRequest, rw WebhookResponseWriter) (err error)
 ```
 
 - Parameters
