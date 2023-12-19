@@ -43,6 +43,7 @@ type Options struct {
 
 	Image            string                        `json:"image" validate:"required"`
 	ImagePullSecrets []corev1.LocalObjectReference `json:"imagePullSecrets"`
+	ImagePullPolicy  corev1.PullPolicy             `json:"imagePullPolicy" default:"Always"`
 	Affinity         *corev1.Affinity              `json:"affinity"`
 	NodeSelector     map[string]string             `json:"nodeSelector"`
 	ServiceAccount   string                        `json:"serviceAccount"`
@@ -286,7 +287,7 @@ func main() {
 							{
 								Name:            opts.Name,
 								Image:           opts.Image,
-								ImagePullPolicy: corev1.PullAlways,
+								ImagePullPolicy: opts.ImagePullPolicy,
 								Command:         opts.Command,
 								Args:            opts.Args,
 								Env:             opts.Env,
