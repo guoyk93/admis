@@ -9,6 +9,7 @@ RUN go build -o /${APP_NAME} ./cmd/${APP_NAME}
 
 FROM alpine:3.19
 ARG APP_NAME
+ENV APP_NAME "${APP_NAME}"
 RUN apk add --no-cache ca-certificates tzdata
 COPY --from=builder /${APP_NAME} /${APP_NAME}
-CMD ["/${APP_NAME}"]
+CMD ["sh", "-c", "exec /${APP_NAME}"]
