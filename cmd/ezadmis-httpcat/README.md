@@ -43,10 +43,12 @@ metadata:
 spec:
   template:
     spec:
-      serviceAccount: ezadmis-install
+      serviceAccountName: ezadmis-install
+      automountServiceAccountToken: true
       containers:
         - name: install-ezadmis-httpcat
           image: guoyk/ezadmis-install
+          imagePullPolicy: Always
           args:
             - /ezadmis-install
             - -conf
