@@ -1,24 +1,35 @@
 package main
 
 import (
+	"bytes"
 	"context"
-	"github.com/guoyk93/grace"
-	"github.com/guoyk93/grace/graceconf"
-	"github.com/guoyk93/grace/gracek8s"
-	"github.com/guoyk93/grace/gracemain"
-	"github.com/guoyk93/grace/gracex509"
-	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
-	appsv1 "k8s.io/api/apps/v1"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/intstr"
+	"encoding/json"
+	"errors"
+	"flag"
+	"fmt"
 	"log"
 	"os"
 	"time"
+
+	"github.com/creasty/defaults"
+	"github.com/go-playground/validator/v10"
+	"github.com/guoyk93/ezadmis/pkg/x509util"
+	"github.com/guoyk93/rg"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
 )
 
 const (
-	SecretEZAdmisInstall = "ezadmis-install-ca"
+	ezadmisInstallCA = "ezadmis-install-ca"
+
+	serviceAccountNamespacePath = "/var/run/secrets/kubernetes.io/serviceaccount/namespace"
 )
 
 type Options struct {
@@ -48,21 +59,131 @@ type Options struct {
 	InitContainers   []corev1.Container            `json:"initContainers"`
 }
 
+func detectNamespace() (string, error) {
+	buf, err := os.ReadFile(serviceAccountNamespacePath)
+	return string(bytes.TrimSpace(buf)), err
+}
+
+func createClient() (client *kubernetes.Clientset, err error) {
+	var cfg *rest.Config
+
+	if cfg, err = rest.InClusterConfig(); err != nil {
+		if cfg, err = clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
+			clientcmd.NewDefaultClientConfigLoadingRules(),
+			nil,
+		).ClientConfig(); err != nil {
+			return
+		}
+	}
+
+	return kubernetes.NewForConfig(cfg)
+}
+
+type resourceAPI[T any] interface {
+	Get(ctx context.Context, name string, opts metav1.GetOptions) (*T, error)
+	Create(ctx context.Context, obj *T, opts metav1.CreateOptions) (*T, error)
+}
+
+func detectResourceName(v any) string {
+	type withMetadata struct {
+		Metadata struct {
+			Name string `json:"name"`
+		} `json:"metadata"`
+	}
+	var obj withMetadata
+	if buf, err := json.Marshal(v); err == nil {
+		_ = json.Unmarshal(buf, &obj)
+	}
+	return obj.Metadata.Name
+}
+
+func ensureResource[T any](ctx context.Context, api resourceAPI[T], obj *T) (out *T, err error) {
+	name := detectResourceName(obj)
+
+	if name == "" {
+		err = errors.New("ensure: missing metadata.name")
+		return
+	}
+
+	if out, err = api.Get(ctx, name, metav1.GetOptions{}); err != nil {
+		if kerrors.IsNotFound(err) {
+			out, err = api.Create(ctx, obj, metav1.CreateOptions{})
+		}
+	}
+
+	return
+}
+
+func ensureCertificate(
+	ctx context.Context,
+	api resourceAPI[corev1.Secret],
+	name string,
+	opts x509util.GenerateOptions,
+) (secret *corev1.Secret, res x509util.PEMPair, err error) {
+	if secret, err = api.Get(ctx, name, metav1.GetOptions{}); err != nil {
+		if kerrors.IsNotFound(err) {
+			if res, err = x509util.Generate(opts); err != nil {
+				return
+			}
+
+			if secret, err = api.Create(ctx, &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: name,
+				},
+				Type: corev1.SecretTypeTLS,
+				StringData: map[string]string{
+					corev1.TLSCertKey:       string(res.Crt),
+					corev1.TLSPrivateKeyKey: string(res.Key),
+				},
+			}, metav1.CreateOptions{}); err != nil {
+				return
+			}
+		}
+	} else {
+		res.Crt, res.Key = secret.Data[corev1.TLSCertKey], secret.Data[corev1.TLSPrivateKeyKey]
+
+		if res.IsZero() {
+			err = fmt.Errorf("missing key: %s or %s", corev1.TLSCertKey, corev1.TLSPrivateKeyKey)
+			return
+		}
+	}
+	return
+}
+
 func main() {
 	log.SetOutput(os.Stdout)
 	log.SetFlags(log.Ltime | log.Lmsgprefix)
 
 	var err error
-	defer gracemain.Exit(&err)
-	defer grace.Guard(&err)
 
-	opts := grace.Must(graceconf.LoadJSONFlagConf[Options]())
+	defer func() {
+		if err == nil {
+			return
+		}
+		log.Println("exited with error:", err.Error())
+		os.Exit(1)
+	}()
 
-	client := grace.Must(gracek8s.DefaultClient())
+	defer rg.Guard(&err)
+
+	var argConf string
+
+	flag.StringVar(&argConf, "conf", "config.json", "config file")
+	flag.Parse()
+
+	bufConf := rg.Must(os.ReadFile(argConf))
+
+	var opts Options
+
+	rg.Must0(json.Unmarshal(bufConf, &opts))
+	rg.Must0(defaults.Set(&opts))
+	rg.Must0(validator.New().Struct(&opts))
+
+	client := rg.Must(createClient())
 
 	// determine namespace
 	if opts.Namespace == "" {
-		if opts.Namespace, err = gracek8s.InClusterNamespace(); err != nil {
+		if opts.Namespace, err = detectNamespace(); err != nil {
 			err = nil
 		}
 	}
@@ -70,16 +191,16 @@ func main() {
 		opts.Namespace = metav1.NamespaceDefault
 	}
 
-	log.Println("bootstrapping admission webhook", opts.Name, "in namespace", opts.Namespace)
+	log.Println("bootstrapping admission webhook", opts.Name, "in namespace:", opts.Namespace)
 
 	ctx := context.Background()
 
-	_, ca := grace.Must2(
-		gracek8s.GetOrCreateTLSSecret(
+	_, ca := rg.Must2(
+		ensureCertificate(
 			ctx,
 			client.CoreV1().Secrets(opts.Namespace),
-			SecretEZAdmisInstall,
-			gracex509.GenerateOptions{
+			ezadmisInstallCA,
+			x509util.GenerateOptions{
 				IsCA:  true,
 				Names: []string{"EZAdmisInstall root ca"},
 			},
@@ -90,12 +211,12 @@ func main() {
 
 	secretName := opts.Name + "-crt"
 
-	_, leaf := grace.Must2(
-		gracek8s.GetOrCreateTLSSecret(
+	_, leaf := rg.Must2(
+		ensureCertificate(
 			ctx,
 			client.CoreV1().Secrets(opts.Namespace),
 			secretName,
-			gracex509.GenerateOptions{
+			x509util.GenerateOptions{
 				Parent: ca,
 				Names: []string{
 					opts.Name,
@@ -114,7 +235,7 @@ func main() {
 		"k8s-app": opts.Name,
 	}
 
-	grace.Must(gracek8s.GetOrCreate[corev1.Service](
+	rg.Must(ensureResource[corev1.Service](
 		ctx,
 		client.CoreV1().Services(opts.Namespace),
 		&corev1.Service{
@@ -140,7 +261,7 @@ func main() {
 
 	const volumeNameTLS = "vol-ezadmis-tls"
 
-	grace.Must(gracek8s.GetOrCreate[appsv1.StatefulSet](
+	rg.Must(ensureResource[appsv1.StatefulSet](
 		ctx,
 		client.AppsV1().StatefulSets(opts.Namespace),
 		&appsv1.StatefulSet{
@@ -215,7 +336,7 @@ func main() {
 	qualifiedName := opts.Namespace + "-" + opts.Name
 
 	if opts.Mutating {
-		grace.Must(gracek8s.GetOrCreate[admissionregistrationv1.MutatingWebhookConfiguration](
+		rg.Must(ensureResource[admissionregistrationv1.MutatingWebhookConfiguration](
 			ctx,
 			client.AdmissionregistrationV1().MutatingWebhookConfigurations(),
 			&admissionregistrationv1.MutatingWebhookConfiguration{
@@ -241,7 +362,7 @@ func main() {
 			},
 		))
 	} else {
-		grace.Must(gracek8s.GetOrCreate[admissionregistrationv1.ValidatingWebhookConfiguration](
+		rg.Must(ensureResource[admissionregistrationv1.ValidatingWebhookConfiguration](
 			ctx,
 			client.AdmissionregistrationV1().ValidatingWebhookConfigurations(),
 			&admissionregistrationv1.ValidatingWebhookConfiguration{

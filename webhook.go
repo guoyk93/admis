@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"k8s.io/apimachinery/pkg/types"
 	"log"
 	"net/http"
 	"os"
@@ -13,6 +12,8 @@ import (
 	"strings"
 	"sync"
 	"syscall"
+
+	"k8s.io/apimachinery/pkg/types"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -24,26 +25,26 @@ type WebhookResponseWriter interface {
 	// Deny deny this admission request
 	Deny(deny string)
 	// PatchRaw append a raw JSONPatch operation
-	PatchRaw(patch map[string]interface{})
+	PatchRaw(patch map[string]any)
 	// PatchAdd append a JSONPatch 'add' operation
-	PatchAdd(path string, value interface{})
+	PatchAdd(path string, value any)
 	// PatchRemove append a JSONPatch 'remove' operation
 	PatchRemove(path string)
 	// PatchReplace append a JSONPatch 'replace' operation
-	PatchReplace(path string, value interface{})
+	PatchReplace(path string, value any)
 	// PatchCopy append a JSONPatch 'copy' operation
 	PatchCopy(path string, from string)
 	// PatchMove append a JSONPatch 'move' operation
 	PatchMove(path string, from string)
 	// PatchTest append a JSONPatch 'test' operation
-	PatchTest(path string, value interface{})
+	PatchTest(path string, value any)
 
 	// Build build a admission response
 	Build(uid types.UID) (res *admissionv1.AdmissionResponse, err error)
 }
 
 type webhookResponseWriter struct {
-	patches []map[string]interface{}
+	patches []map[string]any
 	deny    string
 }
 
@@ -51,12 +52,12 @@ func (w *webhookResponseWriter) Deny(deny string) {
 	w.deny = deny
 }
 
-func (w *webhookResponseWriter) PatchRaw(patch map[string]interface{}) {
+func (w *webhookResponseWriter) PatchRaw(patch map[string]any) {
 	w.patches = append(w.patches, patch)
 }
 
-func (w *webhookResponseWriter) PatchAdd(path string, value interface{}) {
-	w.PatchRaw(map[string]interface{}{
+func (w *webhookResponseWriter) PatchAdd(path string, value any) {
+	w.PatchRaw(map[string]any{
 		"op":    "add",
 		"path":  path,
 		"value": value,
@@ -64,14 +65,14 @@ func (w *webhookResponseWriter) PatchAdd(path string, value interface{}) {
 }
 
 func (w *webhookResponseWriter) PatchRemove(path string) {
-	w.PatchRaw(map[string]interface{}{
+	w.PatchRaw(map[string]any{
 		"op":   "remove",
 		"path": path,
 	})
 }
 
-func (w *webhookResponseWriter) PatchReplace(path string, value interface{}) {
-	w.PatchRaw(map[string]interface{}{
+func (w *webhookResponseWriter) PatchReplace(path string, value any) {
+	w.PatchRaw(map[string]any{
 		"op":    "replace",
 		"path":  path,
 		"value": value,
@@ -79,7 +80,7 @@ func (w *webhookResponseWriter) PatchReplace(path string, value interface{}) {
 }
 
 func (w *webhookResponseWriter) PatchCopy(path string, from string) {
-	w.PatchRaw(map[string]interface{}{
+	w.PatchRaw(map[string]any{
 		"op":   "copy",
 		"path": path,
 		"from": from,
@@ -87,15 +88,15 @@ func (w *webhookResponseWriter) PatchCopy(path string, from string) {
 }
 
 func (w *webhookResponseWriter) PatchMove(path string, from string) {
-	w.PatchRaw(map[string]interface{}{
+	w.PatchRaw(map[string]any{
 		"op":   "move",
 		"path": path,
 		"from": from,
 	})
 }
 
-func (w *webhookResponseWriter) PatchTest(path string, value interface{}) {
-	w.PatchRaw(map[string]interface{}{
+func (w *webhookResponseWriter) PatchTest(path string, value any) {
+	w.PatchRaw(map[string]any{
 		"op":    "test",
 		"path":  path,
 		"value": value,
