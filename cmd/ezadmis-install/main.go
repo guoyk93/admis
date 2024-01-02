@@ -13,8 +13,8 @@ import (
 
 	"github.com/creasty/defaults"
 	"github.com/go-playground/validator/v10"
-	"github.com/guoyk93/ezadmis/pkg/x509util"
-	"github.com/guoyk93/rg"
+	"github.com/yankeguo/ezadmis/pkg/x509util"
+	"github.com/yankeguo/rg"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"

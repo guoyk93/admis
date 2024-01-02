@@ -1,6 +1,6 @@
 # ezadmis
 
-[![Go Reference](https://pkg.go.dev/badge/github.com/guoyk93/ezadmis.svg)](https://pkg.go.dev/github.com/guoyk93/ezadmis)
+[![Go Reference](https://pkg.go.dev/badge/github.com/yankeguo/ezadmis.svg)](https://pkg.go.dev/github.com/yankeguo/ezadmis)
 
 Tools for building and registering Kubernetes admission webhooks
 
@@ -41,11 +41,7 @@ This repository provides two important tools
 
 ## Extra Tools
 
-See https://github.com/guoyk93/ezadmis-extra
-
-## Donation
-
-View <https://guoyk.xyz/donation>
+See https://github.com/yankeguo/ezadmis-extra
 
 ## Credits
 

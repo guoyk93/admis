@@ -5,7 +5,7 @@ The tool `ezadmis-install` can reduce the complexity of installing an admission 
 ## Installation
 
 ```shell
-go install github.com/guoyk93/ezadmis/cmd/ezadmis-install@latest
+go install github.com/yankeguo/ezadmis/cmd/ezadmis-install@latest
 ```
 
 *ensure your `$GOPATH/bin` is a part of your `$PATH`*

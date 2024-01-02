@@ -3,10 +3,11 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"github.com/guoyk93/ezadmis"
-	admissionv1 "k8s.io/api/admission/v1"
 	"log"
 	"os"
+
+	"github.com/yankeguo/ezadmis"
+	admissionv1 "k8s.io/api/admission/v1"
 )
 
 func main() {
