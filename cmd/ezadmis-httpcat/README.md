@@ -31,7 +31,7 @@ data:
       ],
       "sideEffect": "None",
       "failurePolicy": "Ignore",
-      "image": "guoyk/ezadmis-httpcat"
+      "image": "yankeguo/ezadmis-httpcat"
     }
 ---
 # Job
@@ -47,7 +47,7 @@ spec:
       automountServiceAccountToken: true
       containers:
         - name: install-ezadmis-httpcat
-          image: guoyk/ezadmis-install
+          image: yankeguo/ezadmis-install
           imagePullPolicy: Always
           args:
             - /ezadmis-install
@@ -64,10 +64,6 @@ spec:
       restartPolicy: OnFailure
 ```
 
-## Donation
-
-View <https://guoyk.xyz/donation>
-
 ## Credits
 
-Guo Y.K., MIT License
+GUO YANKE, MIT License
