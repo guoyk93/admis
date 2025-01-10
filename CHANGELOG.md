@@ -2,6 +2,12 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 - - -
+## v0.3.1 - 2025-01-10
+#### Build system
+- update go version for building - (72385d3) - GUO YANKE
+
+- - -
+
 ## v0.3.0 - 2025-01-10
 #### Bug Fixes
 - correct ezadmis-install options parsing - (74a6785) - GUO YANKE
