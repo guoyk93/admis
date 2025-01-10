@@ -2,6 +2,12 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 - - -
+## v0.4.1 - 2025-01-10
+#### Bug Fixes
+- **(ezadmis-install)** correct sideEffects - (c1f231a) - GUO YANKE
+
+- - -
+
 ## v0.4.0 - 2025-01-10
 #### Bug Fixes
 - update github actions for tagging - (bc88068) - GUO YANKE
