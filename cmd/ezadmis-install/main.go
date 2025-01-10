@@ -38,7 +38,7 @@ type Options struct {
 
 	Mutating       bool                                         `json:"mutating"`
 	AdmissionRules []admissionregistrationv1.RuleWithOperations `json:"admissionRules" validate:"required"`
-	SideEffect     admissionregistrationv1.SideEffectClass      `json:"sideEffect" default:"Unknown" validate:"required"`
+	SideEffects    admissionregistrationv1.SideEffectClass      `json:"sideEffects" default:"NoneOnDryRun" validate:"required"`
 	FailurePolicy  admissionregistrationv1.FailurePolicyType    `json:"failurePolicy" default:"Fail" validate:"required"`
 
 	Image            string                        `json:"image" validate:"required"`
@@ -355,7 +355,7 @@ func main() {
 							},
 						},
 						Rules:                   opts.AdmissionRules,
-						SideEffects:             &opts.SideEffect,
+						SideEffects:             &opts.SideEffects,
 						FailurePolicy:           &opts.FailurePolicy,
 						AdmissionReviewVersions: []string{"v1"},
 					},
@@ -381,7 +381,7 @@ func main() {
 							},
 						},
 						Rules:                   opts.AdmissionRules,
-						SideEffects:             &opts.SideEffect,
+						SideEffects:             &opts.SideEffects,
 						FailurePolicy:           &opts.FailurePolicy,
 						AdmissionReviewVersions: []string{"v1"},
 					},
