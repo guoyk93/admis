@@ -236,7 +236,7 @@ func main() {
 		"k8s-app": opts.Name,
 	}
 
-	rg.Must(ensureResource[corev1.Service](
+	rg.Must(ensureResource(
 		ctx,
 		client.CoreV1().Services(opts.Namespace),
 		&corev1.Service{
@@ -262,7 +262,7 @@ func main() {
 
 	const volumeNameTLS = "vol-ezadmis-tls"
 
-	rg.Must(ensureResource[appsv1.StatefulSet](
+	rg.Must(ensureResource(
 		ctx,
 		client.AppsV1().StatefulSets(opts.Namespace),
 		&appsv1.StatefulSet{
@@ -337,7 +337,7 @@ func main() {
 	qualifiedName := opts.Namespace + "-" + opts.Name
 
 	if opts.Mutating {
-		rg.Must(ensureResource[admissionregistrationv1.MutatingWebhookConfiguration](
+		rg.Must(ensureResource(
 			ctx,
 			client.AdmissionregistrationV1().MutatingWebhookConfigurations(),
 			&admissionregistrationv1.MutatingWebhookConfiguration{
@@ -346,7 +346,7 @@ func main() {
 				},
 				Webhooks: []admissionregistrationv1.MutatingWebhook{
 					{
-						Name: qualifiedName + ".ezadmis-install.guoyk93.github.io",
+						Name: qualifiedName + ".ezadmis-install.yankeguo.github.io",
 						ClientConfig: admissionregistrationv1.WebhookClientConfig{
 							CABundle: ca.Crt,
 							Service: &admissionregistrationv1.ServiceReference{
@@ -363,7 +363,7 @@ func main() {
 			},
 		))
 	} else {
-		rg.Must(ensureResource[admissionregistrationv1.ValidatingWebhookConfiguration](
+		rg.Must(ensureResource(
 			ctx,
 			client.AdmissionregistrationV1().ValidatingWebhookConfigurations(),
 			&admissionregistrationv1.ValidatingWebhookConfiguration{
@@ -372,7 +372,7 @@ func main() {
 				},
 				Webhooks: []admissionregistrationv1.ValidatingWebhook{
 					{
-						Name: qualifiedName + ".ezadmis-install.guoyk93.github.io",
+						Name: qualifiedName + ".ezadmis-install.yankeguo.github.io",
 						ClientConfig: admissionregistrationv1.WebhookClientConfig{
 							CABundle: ca.Crt,
 							Service: &admissionregistrationv1.ServiceReference{

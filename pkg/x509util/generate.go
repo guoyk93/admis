@@ -59,7 +59,7 @@ func GeneratePrivateKeyPEM(alg x509.PublicKeyAlgorithm) (key crypto.Signer, keyP
 
 const (
 	DefaultCountry            = "CN"
-	DefaultOrganization       = "guoyk93.github.io"
+	DefaultOrganization       = "yankeguo.github.io"
 	DefaultExpires            = time.Hour * 24 * 365 * 30
 	DefaultPublicKeyAlgorithm = x509.RSA
 )
