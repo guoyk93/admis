@@ -34,7 +34,7 @@ const (
 
 type Options struct {
 	Name      string `json:"name" validate:"required"`
-	Namespace string `json:"opts.Namespace"`
+	Namespace string `json:"namespace"`
 
 	Mutating       bool                                         `json:"mutating"`
 	AdmissionRules []admissionregistrationv1.RuleWithOperations `json:"admissionRules" validate:"required"`
