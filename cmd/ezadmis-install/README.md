@@ -36,8 +36,9 @@ _ensure your `$GOPATH/bin` is a part of your `$PATH`_
   ],
   // sideEffect, side effect of this webhook
   // should be one of 'Unknown', 'None', 'Some' or 'NoneOnDryRun'
-  // default: Unknown
-  sideEffect: "None",
+  // and one of "None" or "NoneOnDryRun" for mutating webhooks
+  // default: NoneOnDryRun
+  sideEffects: "None",
   // failurePolicy, whether failure of calling this webhook should block the original request.
   // should be one of 'Ignore' or 'Fail'
   // default: Fail
