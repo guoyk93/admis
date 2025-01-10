@@ -1,6 +1,6 @@
 ARG APP_NAME=missing
 
-FROM golang:1.21 AS builder
+FROM golang:1.23 AS builder
 ARG APP_NAME
 ENV CGO_ENABLED 0
 WORKDIR /go/src/app
